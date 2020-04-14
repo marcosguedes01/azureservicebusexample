@@ -10,12 +10,11 @@ namespace AzureServiceBusConsole
 
         private static ServiceBusQueue helloServiceBus;
 
-        static void Main(string[] args)
+        static void Main()
         {
             helloServiceBus = new ServiceBusQueue(ServiceBusConnectionString, QueueName);
-            helloServiceBus.Receive(printMessage);
+            helloServiceBus.ReceiveQueueMessage(printMessage, printMessageException);
 
-            Console.WriteLine("Press a key to finish...");
             Console.ReadKey();
 
             helloServiceBus.CloseConnectionAsync().GetAwaiter();
@@ -24,6 +23,15 @@ namespace AzureServiceBusConsole
         private static void printMessage(long sequenceNumber, string messageBody)
         {
             Console.WriteLine($"Received message: SequenceNumber:{sequenceNumber} Body:{messageBody}");
+        }
+
+        private static void printMessageException(ServiceBusException messageException)
+        {
+            Console.WriteLine($"Message handler encountered an exception {messageException.Exception}.");
+            Console.WriteLine("Exception context for troubleshooting:");
+            Console.WriteLine($"- Endpoint: {messageException.ContextEndpoint}");
+            Console.WriteLine($"- Entity Path: {messageException.ContextEntityPath}");
+            Console.WriteLine($"- Executing Action: {messageException.ContextAction}");
         }
     }
 }

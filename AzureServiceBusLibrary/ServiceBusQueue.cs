@@ -6,60 +6,41 @@ using System.Threading.Tasks;
 
 namespace AzureServiceBusLibrary
 {
-    public sealed class ServiceBusQueue : IServiceBusQueue
+    public sealed class ServiceBusQueue : ServiceBusBase
     {
-        public delegate void PrintMessage(long sequenceNumber, string messageBody);
-
-        // Connection String for the namespace can be obtained from the Azure portal under the 
-        // 'Shared Access policies' section.
-        private string serviceBusConnectionString;
-        private string queueName;
-        private IQueueClient queueClient;
-        private PrintMessage printMessage;
+        public int MaxConcurrentCalls { get; set; } = 1;
+        public bool AutoComplete { get; set; } = false;
 
         public ServiceBusQueue(string serviceBusConnectionString, string queueName)
-        {
-            this.serviceBusConnectionString = serviceBusConnectionString;
-            this.queueName = queueName;
-        }
+            : base(serviceBusConnectionString, queueName) { }
 
-        #region Queue send
-        public async Task Send()
+        public override async Task SendQueueMessage(string message)
         {
-            const int numberOfMessages = 10;
             queueClient = new QueueClient(serviceBusConnectionString, queueName);
 
-            // Send messages.
-            await SendMessagesAsync(numberOfMessages);
-
-            await CloseConnectionAsync();
-        }
-
-        private async Task SendMessagesAsync(int numberOfMessagesToSend)
-        {
             try
             {
-                for (var i = 0; i < numberOfMessagesToSend; i++)
-                {
-                    // Create a new message to send to the queue
-                    string messageBody = $"Message {i}";
-                    var message = new Message(Encoding.UTF8.GetBytes(messageBody));
+                var msg = new Message(Encoding.UTF8.GetBytes(message));
 
-                    // Send the message to the queue
-                    await queueClient.SendAsync(message);
-                }
+                // Send the message to the queue
+                await queueClient.SendAsync(msg);
             }
             catch (Exception exception)
             {
                 throw exception;
             }
         }
-        #endregion
 
         #region Queue receive
-        public void Receive(PrintMessage printMessage)
+        public override void ReceiveQueueMessage(PrintMessage printMessage)
+        {
+            ReceiveQueueMessage(printMessage, null);
+        }
+
+        public override void ReceiveQueueMessage(PrintMessage printMessage, PrintMessageException printMessageException)
         {
             this.printMessage = printMessage;
+            this.printMessageException = printMessageException;
 
             queueClient = new QueueClient(serviceBusConnectionString, queueName);
 
@@ -74,11 +55,11 @@ namespace AzureServiceBusLibrary
             {
                 // Maximum number of Concurrent calls to the callback `ProcessMessagesAsync`, set to 1 for simplicity.
                 // Set it according to how many messages the application wants to process in parallel.
-                MaxConcurrentCalls = 1,
+                MaxConcurrentCalls = MaxConcurrentCalls,
 
                 // Indicates whether MessagePump should automatically complete the messages after returning from User Callback.
                 // False below indicates the Complete will be handled by the User Callback as in `ProcessMessagesAsync` below.
-                AutoComplete = false
+                AutoComplete = AutoComplete
             };
 
             // Register the function that will process messages
@@ -103,26 +84,21 @@ namespace AzureServiceBusLibrary
 
         private Task ExceptionReceivedHandler(ExceptionReceivedEventArgs exceptionReceivedEventArgs)
         {
-            Console.WriteLine($"Message handler encountered an exception {exceptionReceivedEventArgs.Exception}.");
-            var context = exceptionReceivedEventArgs.ExceptionReceivedContext;
-            Console.WriteLine("Exception context for troubleshooting:");
-            Console.WriteLine($"- Endpoint: {context.Endpoint}");
-            Console.WriteLine($"- Entity Path: {context.EntityPath}");
-            Console.WriteLine($"- Executing Action: {context.Action}");
+            if (printMessageException != null)
+            {
+                var context = exceptionReceivedEventArgs.ExceptionReceivedContext;
+
+                printMessageException(new ServiceBusException
+                {
+                    Exception = exceptionReceivedEventArgs.Exception,
+                    ContextEndpoint = context.Endpoint,
+                    ContextEntityPath = context.EntityPath,
+                    ContextAction = context.Action
+                });
+            }
+
             return Task.CompletedTask;
         }
         #endregion
-
-        public async Task CloseConnectionAsync()
-        {
-            await queueClient.CloseAsync();
-        }
-    }
-
-    public interface IServiceBusQueue
-    {
-        Task Send();
-        void Receive(ServiceBusQueue.PrintMessage printMessage);
-        Task CloseConnectionAsync();
     }
 }
