@@ -7,13 +7,14 @@ namespace AzureServiceBusConsole
     {
         private const string ServiceBusConnectionString = "{AZURE_SERVICE_BUS_CONNECTION_STRING}";
         private const string QueueName = "{QUEUE_NAME}";
+        private const string SubscriptionName = "{SUBSCRIPTION_NAME}";
 
-        private static ServiceBusQueue helloServiceBus;
+        private static IServiceBus helloServiceBus;
 
         static void Main()
         {
-            helloServiceBus = new ServiceBusQueue(ServiceBusConnectionString, QueueName);
-            helloServiceBus.ReceiveQueueMessage(printMessage, printMessageException);
+            helloServiceBus = new ServiceBusTopic(ServiceBusConnectionString, QueueName, SubscriptionName);
+            helloServiceBus.ReceiveMessage(printMessage, printMessageException);
 
             Console.ReadKey();
 

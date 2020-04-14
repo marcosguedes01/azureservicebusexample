@@ -4,41 +4,41 @@ using Xunit;
 
 namespace AzureServiceBusTests
 {
-    public class AzureServiceBusLibraryTest
+    public class ServiceBusQueueTest
     {
         private const string ServiceBusConnectionString = "{AZURE_SERVICE_BUS_CONNECTION_STRING}";
         private const string QueueName = "{QUEUE_NAME}";
-
-        private IServiceBus serviceBusQueue;
+        
+        private IServiceBus serviceBus;
         private bool connectionOpened;
         private long sequenceNumber;
         private string messageBody;
 
         [Fact]
-        public async Task QueueSendTestAsync()
+        public async Task SendTestAsync()
         {
-            serviceBusQueue = new ServiceBusQueue(ServiceBusConnectionString, QueueName);
+            serviceBus = new ServiceBusQueue(ServiceBusConnectionString, QueueName);
 
             for (int i = 1; i <= 10; i++)
             {
                 var message = $"Message {i}";
-                await serviceBusQueue.SendQueueMessage(message);
+                await serviceBus.SendMessage(message);
             }
 
-            await serviceBusQueue.CloseConnectionAsync();
+            await serviceBus.CloseConnectionAsync();
         }
 
         [Fact]
-        public void QueueReceiveTestAsync()
+        public void ReceiveTestAsync()
         {
             connectionOpened = true;
 
-            serviceBusQueue = new ServiceBusQueue(ServiceBusConnectionString, QueueName);
-            serviceBusQueue.ReceiveQueueMessage(printMessage);
+            serviceBus = new ServiceBusQueue(ServiceBusConnectionString, QueueName);
+            serviceBus.ReceiveMessage(printMessage);
 
             while (connectionOpened) { }
 
-            serviceBusQueue.CloseConnectionAsync().GetAwaiter();
+            serviceBus.CloseConnectionAsync().GetAwaiter();
 
             Assert.True(sequenceNumber > 0);
             Assert.True(!string.IsNullOrEmpty(messageBody));

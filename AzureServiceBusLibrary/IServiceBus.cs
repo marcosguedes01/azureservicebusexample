@@ -5,9 +5,9 @@ namespace AzureServiceBusLibrary
 {
     public interface IServiceBus
     {
-        Task SendQueueMessage(string messsage);
-        void ReceiveQueueMessage(PrintMessage printMessage);
-        void ReceiveQueueMessage(PrintMessage printMessage, PrintMessageException printMessageException);
+        Task SendMessage(string messsage);
+        void ReceiveMessage(PrintMessage printMessage);
+        void ReceiveMessage(PrintMessage printMessage, PrintMessageException printMessageException);
         Task CloseConnectionAsync();
     }
 

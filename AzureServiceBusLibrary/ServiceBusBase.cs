@@ -5,33 +5,47 @@ namespace AzureServiceBusLibrary
 {
     public abstract class ServiceBusBase : IServiceBus
     {
+        public int MaxConcurrentCalls { get; set; } = 1;
+        public bool AutoComplete { get; set; } = false;
+
         // Connection String for the namespace can be obtained from the Azure portal under the 
         // 'Shared Access policies' section.
         protected readonly string serviceBusConnectionString;
-        protected readonly string queueName;
-
+        
         protected PrintMessage printMessage;
         protected PrintMessageException printMessageException;
 
-        protected IQueueClient queueClient;
-
-        public ServiceBusBase(string serviceBusConnectionString, string queueName)
+        public ServiceBusBase(string serviceBusConnectionString)
         {
             this.serviceBusConnectionString = serviceBusConnectionString;
-            this.queueName = queueName;
         }
 
-        public abstract Task SendQueueMessage(string messsage);
+        public abstract Task SendMessage(string messsage);
 
-        public abstract void ReceiveQueueMessage(PrintMessage printMessage);
-        public virtual void ReceiveQueueMessage(PrintMessage printMessage, PrintMessageException printMessageException)
+        public abstract void ReceiveMessage(PrintMessage printMessage);
+        public virtual void ReceiveMessage(PrintMessage printMessage, PrintMessageException printMessageException)
         {
             throw new System.NotImplementedException();
         }
 
-        public virtual async Task CloseConnectionAsync()
+        public abstract Task CloseConnectionAsync();
+
+        protected virtual Task ExceptionReceivedHandler(ExceptionReceivedEventArgs exceptionReceivedEventArgs)
         {
-            await queueClient.CloseAsync();
+            if (printMessageException != null)
+            {
+                var context = exceptionReceivedEventArgs.ExceptionReceivedContext;
+
+                printMessageException(new ServiceBusException
+                {
+                    Exception = exceptionReceivedEventArgs.Exception,
+                    ContextEndpoint = context.Endpoint,
+                    ContextEntityPath = context.EntityPath,
+                    ContextAction = context.Action
+                });
+            }
+
+            return Task.CompletedTask;
         }
     }
 }

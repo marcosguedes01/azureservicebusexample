@@ -6,15 +6,20 @@ using System.Threading.Tasks;
 
 namespace AzureServiceBusLibrary
 {
+    /// <summary>
+    /// https://docs.microsoft.com/en-us/azure/service-bus-messaging/service-bus-dotnet-get-started-with-queues
+    /// </summary>
     public sealed class ServiceBusQueue : ServiceBusBase
     {
-        public int MaxConcurrentCalls { get; set; } = 1;
-        public bool AutoComplete { get; set; } = false;
+        private readonly string queueName;
+        private IQueueClient queueClient;
+        
+        public ServiceBusQueue(string serviceBusConnectionString, string queueName) : base(serviceBusConnectionString)
+        {
+            this.queueName = queueName;
+        }
 
-        public ServiceBusQueue(string serviceBusConnectionString, string queueName)
-            : base(serviceBusConnectionString, queueName) { }
-
-        public override async Task SendQueueMessage(string message)
+        public override async Task SendMessage(string message)
         {
             queueClient = new QueueClient(serviceBusConnectionString, queueName);
 
@@ -31,13 +36,12 @@ namespace AzureServiceBusLibrary
             }
         }
 
-        #region Queue receive
-        public override void ReceiveQueueMessage(PrintMessage printMessage)
+        public override void ReceiveMessage(PrintMessage printMessage)
         {
-            ReceiveQueueMessage(printMessage, null);
+            ReceiveMessage(printMessage, null);
         }
 
-        public override void ReceiveQueueMessage(PrintMessage printMessage, PrintMessageException printMessageException)
+        public override void ReceiveMessage(PrintMessage printMessage, PrintMessageException printMessageException)
         {
             this.printMessage = printMessage;
             this.printMessageException = printMessageException;
@@ -46,6 +50,11 @@ namespace AzureServiceBusLibrary
 
             // Register QueueClient's MessageHandler and receive messages in a loop
             RegisterOnMessageHandlerAndReceiveMessages();
+        }
+
+        public override async Task CloseConnectionAsync()
+        {
+            await queueClient.CloseAsync();
         }
 
         private void RegisterOnMessageHandlerAndReceiveMessages()
@@ -81,24 +90,5 @@ namespace AzureServiceBusLibrary
             // If queueClient has already been Closed, you may chose to not call CompleteAsync() or AbandonAsync() etc. calls 
             // to avoid unnecessary exceptions.
         }
-
-        private Task ExceptionReceivedHandler(ExceptionReceivedEventArgs exceptionReceivedEventArgs)
-        {
-            if (printMessageException != null)
-            {
-                var context = exceptionReceivedEventArgs.ExceptionReceivedContext;
-
-                printMessageException(new ServiceBusException
-                {
-                    Exception = exceptionReceivedEventArgs.Exception,
-                    ContextEndpoint = context.Endpoint,
-                    ContextEntityPath = context.EntityPath,
-                    ContextAction = context.Action
-                });
-            }
-
-            return Task.CompletedTask;
-        }
-        #endregion
     }
 }
